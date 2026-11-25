@@ -1,0 +1,10 @@
+# Generated datasets, local build artifacts, and runtime logs.
+logs/
+runs/
+accepted/
+rejected/
+setup/wheels/
+downloads/
+assets/
+videos/
+__pycache__/

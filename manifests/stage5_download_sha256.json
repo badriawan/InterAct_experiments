@@ -1,0 +1,18 @@
+{
+  "evaluator.archive": {
+    "bytes": 520797482,
+    "sha256": "3aa23dafbb34c6fa58f11ee548381d06826cd3875ef15c55a699ce559c6b050b"
+  },
+  "pretrained.archive": {
+    "bytes": 456070173,
+    "sha256": "d7849ccde6b5931f1068099f236fb19e39eb714a2ebcf7b8fe60352471ba9d9e"
+  },
+  "behave-30fps-params-v1.tar": {
+    "bytes": 159016960,
+    "sha256": "5785f1b47263fca01330ac0ea8ea2e63a4e420883d6ccc6e305474efb6ddcb51"
+  },
+  "behave-objects.zip": {
+    "bytes": 196462227,
+    "sha256": "940b29fcb58d117d977b3b9148c03719edede2b5f3c3fe0b4a493607d1b76471"
+  }
+}

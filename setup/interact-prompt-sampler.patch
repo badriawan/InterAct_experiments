@@ -1,0 +1,1355 @@
+diff --git a/text2interaction/model/hoi_diff.py b/text2interaction/model/hoi_diff.py
+index 3f543af..1eff4a5 100644
+--- a/text2interaction/model/hoi_diff.py
++++ b/text2interaction/model/hoi_diff.py
+@@ -78,9 +78,8 @@ def get_repre(positions_data, positions_obj_data):
+ 
+     velocity = (positions[:,1: ] - positions[:,:-1])
+     velocity_obj = (positions_obj[:,1: ] - positions_obj[:,:-1])
+-    # pad the last velocity using torch
+-    velocity = torch.cat([velocity, torch.zeros((B,1,velocity.shape[-2],velocity.shape[-1])).cuda()], axis=1)
+-    velocity_obj = torch.cat([velocity_obj, torch.zeros((B,1,velocity_obj.shape[-1])).cuda()], axis=1)
++    velocity = torch.cat([velocity, torch.zeros_like(positions[:, :1])], dim=1)
++    velocity_obj = torch.cat([velocity_obj, torch.zeros_like(positions_obj[:, :1])], dim=1)
+ 
+     velocity = velocity.reshape(B, T, -1)
+ 
+@@ -229,8 +228,8 @@ class HOIDiff(MDM):
+         output_human = self.output_process(output_human)
+         output_obj = self.output_process_obj(output_obj)
+ 
+-        human_data = output_human.permute(0, 2, 3, 1).squeeze().float()
+-        obj_data = output_obj.permute(0, 2, 3, 1).squeeze().float()
++        human_data = output_human.permute(0, 2, 3, 1).squeeze(1).float()
++        obj_data = output_obj.permute(0, 2, 3, 1).squeeze(1).float()
+ 
+ 
+         return get_repre(human_data, obj_data)
+diff --git a/text2interaction/render/visualize_marker.py b/text2interaction/render/visualize_marker.py
+index 4275331..f87ce21 100644
+--- a/text2interaction/render/visualize_marker.py
++++ b/text2interaction/render/visualize_marker.py
+@@ -1,10 +1,12 @@
++import os
++
++os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
++
+ import numpy as np
+ import trimesh
+ import pyrender
+ import imageio
+-import os
+-from scipy.spatial.transform import Rotation 
+-os.environ["PYOPENGL_PLATFORM"] = "egl"
++from scipy.spatial.transform import Rotation
+ colors = {
+         "cyan": [0, 255, 255, 1],
+         "yellow": [255, 255, 0, 1],
+@@ -110,56 +112,48 @@ def toobj(obj_points):
+ 
+ 
+ 
+-def plot_markers(save_path,m_pcd,obj_points):
+-    
+-    minx, _, miny = m_pcd.min(axis=(0, 1))
+-    maxx, _, maxy = m_pcd.max(axis=(0, 1))
+-
+-    mesh_rec = m_pcd.copy()
+-    obj_mesh_rec = obj_points.copy()
+-
+-    mesh_rec[:, :, 0] -= (minx + maxx) / 2
+-    obj_mesh_rec[:, :, 0] -= (minx + maxx) / 2
+-    mesh_rec[:, :, 2] -= (miny + maxy) / 2
+-    obj_mesh_rec[:, :, 2] -= (miny + maxy) / 2
+-
+-    mesh_rec[:, :, 1] += 0.7
+-    obj_mesh_rec[:, :, 1] += 0.7
+-    width = 640
+-    height = 480
+-    figsize = (width, height)
+-
+-    seqlen = len(mesh_rec)
+-    video_writer = imageio.get_writer(save_path, fps=30)
+-    scene = pyrender.Scene()
+-    pc = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=float(width) / height)
++def plot_markers(save_path, m_pcd, obj_points, obj_faces=None):
++    """Render body markers and an object over the supplied valid frames."""
++    width, height = 640, 480
++    yfov = np.pi / 4
++    low = np.minimum(m_pcd.min(axis=(0, 1)), obj_points.min(axis=(0, 1)))
++    high = np.maximum(m_pcd.max(axis=(0, 1)), obj_points.max(axis=(0, 1)))
++    center = (low + high) / 2
++    distance = max(2.5, np.linalg.norm(high - low) / (2 * np.sin(yfov / 2)) * 1.1)
++    direction = np.array([0.6, 0.3, 0.8])
++    direction /= np.linalg.norm(direction)
++    right = np.cross([0, 1, 0], direction)
++    right /= np.linalg.norm(right)
+     camera_pose = np.eye(4)
+-    rotate=trimesh.transformations.rotation_matrix(np.radians(-30.0),
+-                                                    [1,0,0])
+-    camera_pose[:3, 3] = np.array([0, 2, 2.5])
+-    camera_node = scene.add(pc, pose=camera_pose, name='pc-camera')
+-    camera_pose = np.dot(camera_pose, rotate)
+-    viewer = pyrender.OffscreenRenderer(*figsize)
+-    for i in range(seqlen):
+-        pcd_bodyparts = tobodyparts(mesh_rec[i])
+-        # visualize the body parts to video
+-        for node in scene.get_nodes():
+-            if node.name is not None and '-mesh' in node.name:
+-                scene.remove_node(node)
+-        for bp, mesh in pcd_bodyparts.items():
+-            scene.add(mesh,name='%s-mesh'%bp)
+-            
+-        obj_mesh = toobj(obj_mesh_rec[i])
+-        
+-        scene.add(obj_mesh,name='obj-mesh')
+-        # show the scen
+-
+-
+-        color_img, depth_img = viewer.render(scene)
+-        color_img= color_img.astype(np.uint8)
+-        video_writer.append_data(color_img)
+-    video_writer.close()
+-    del viewer
++    camera_pose[:3, :3] = np.column_stack((right, np.cross(direction, right), direction))
++    camera_pose[:3, 3] = center + distance * direction
++
++    scene = pyrender.Scene(bg_color=[0.94, 0.96, 0.98, 1], ambient_light=[0.5] * 3)
++    camera = pyrender.PerspectiveCamera(yfov=yfov, aspectRatio=width / height)
++    scene.add(camera, pose=camera_pose)
++    scene.add(pyrender.DirectionalLight(color=np.ones(3), intensity=2.5), pose=camera_pose)
++    marker_colors = np.tile([0.08, 0.30, 0.66], (m_pcd.shape[1], 1))
++    object_colors = np.tile([0.89, 0.35, 0.06], (obj_points.shape[1], 1))
++    material = pyrender.MetallicRoughnessMaterial(
++        baseColorFactor=[0.89, 0.35, 0.06, 1], metallicFactor=0, roughnessFactor=0.85,
++    )
++    renderer = pyrender.OffscreenRenderer(width, height, point_size=6)
++    try:
++        with imageio.get_writer(save_path, fps=30) as writer:
++            for markers, vertices in zip(m_pcd, obj_points):
++                marker_node = scene.add(pyrender.Mesh.from_points(markers, colors=marker_colors))
++                if obj_faces is None:
++                    rendered_object = pyrender.Mesh.from_points(vertices, colors=object_colors)
++                else:
++                    mesh = trimesh.Trimesh(vertices=vertices, faces=obj_faces, process=False)
++                    rendered_object = pyrender.Mesh.from_trimesh(mesh, material=material, smooth=False)
++                object_node = scene.add(rendered_object)
++                color, _ = renderer.render(scene)
++                writer.append_data(color)
++                scene.remove_node(marker_node)
++                scene.remove_node(object_node)
++    finally:
++        renderer.delete()
+ 
+ 
+ def plot_object(save_path,obj_points):
+diff --git a/text2interaction/sample/local_generate_obj.py b/text2interaction/sample/local_generate_obj.py
+index d5dd990..4b2c622 100644
+--- a/text2interaction/sample/local_generate_obj.py
++++ b/text2interaction/sample/local_generate_obj.py
+@@ -1,365 +1,263 @@
+-# This code is based on https://github.com/openai/guided-diffusion
+-"""
+-Generate a large batch of image samples from a model and save them as a large
+-numpy array. This can be used to produce samples for FID evaluation.
+-"""
+-from utils.fixseed import fixseed
+-import os
++# Based on https://github.com/openai/guided-diffusion.
++"""Generate human-object motion from dataset captions or explicit prompts."""
++
++import hashlib
++import json
++from pathlib import Path
++import re
++import subprocess
++
+ import numpy as np
+ import torch
+-from utils.parser_util import generate_args
+-from utils.model_util import  load_model
+-from utils import dist_util
+-from data_loaders.get_data import DatasetConfig, get_dataset_loader
+-from render.visualize_marker import plot_markers
+-from common.quaternion import rotation_6d_to_matrix_np
+-import shutil
+-from data_loaders.tensors import collate
+ import trimesh
+-from model.hoi_diff import HOIDiff as used_model
+-from diffusion.gaussian_diffusion import LocalMotionDiffusion
+-from sample.marker2smpl import SmplhOptmize10
+-from render.mesh_viz import visualize_body_obj
+-
+-
+-def main():
+-    args = generate_args()
+-    fixseed(args.seed)
+-    out_path = args.output_dir
+-    name = os.path.basename(os.path.dirname(args.model_path))
+-    niter = os.path.basename(args.model_path).replace('model', '').replace('.pt', '')
+-    max_frames = 300 
+-    fps = 30
+-    n_frames = min(max_frames, int(args.motion_length*fps))
+-    is_using_data = not any([args.input_text, args.text_prompt, args.action_file, args.action_name])
+-    dist_util.setup_dist(args.device)
+-
+-    sigmoid = torch.nn.Sigmoid()
+-    if out_path == '':
+-        out_path = os.path.join(os.path.dirname(args.model_path),
+-                                'nonguide_samples_{}_{}_seed{}_{}_random'.format(name, niter, args.seed, args.dataset))
+-        if args.text_prompt != '':
+-            out_path += '_' + args.text_prompt.replace(' ', '_').replace('.', '')
+-        elif args.input_text != '':
+-            out_path += '_' + os.path.basename(args.input_text).replace('.txt', '').replace(' ', '_').replace('.', '')
+-
+-    # this block must be called BEFORE the dataset is loaded
+-    if args.text_prompt != '':
+-        texts = [args.text_prompt]
+-        args.num_samples = 1
+-    elif args.input_text != '':
+-        assert os.path.exists(args.input_text)
+-        with open(args.input_text, 'r') as fr:
+-            texts = fr.readlines()
+-        texts = [s.replace('\n', '') for s in texts]
+-        args.num_samples = len(texts)
+-    elif args.action_name:
+-        action_text = [args.action_name]
+-        args.num_samples = 1
+-    elif args.action_file != '':
+-        assert os.path.exists(args.action_file)
+-        with open(args.action_file, 'r') as fr:
+-            action_text = fr.readlines()
+-        action_text = [s.replace('\n', '') for s in action_text]
+-        args.num_samples = len(action_text)
+-
+-    assert args.num_samples <= args.batch_size, \
+-        f'Please either increase batch_size({args.batch_size}) or reduce num_samples({args.num_samples})'
+-    # So why do we need this check? In order to protect GPU from a memory overload in the following line.
+-    # If your GPU can handle batch size larger then default, you can specify it through --batch_size flag.
+-    # If it doesn't, and you still want to sample more prompts, run this script with different seeds
+-    # (specify through the --seed flag)
+-    args.batch_size = args.num_samples  # Sampling a single batch from the testset, with exactly args.num_samples
+-
+-
+-    print('Loading Motion dataset...')
+-    data = load_motion_dataset(args, max_frames, n_frames)
+-
+-    total_num_samples = args.num_samples * args.num_repetitions
+-
+-
+-
+-    print("Creating motion model and diffusion...")
+-    motion_model, motion_diffusion = load_model(args, data, dist_util.dev(), ModelClass=used_model, DiffusionClass=LocalMotionDiffusion, diff_steps=1000,model_path=args.model_path)
+-
+-        
+-    if is_using_data:
+-        iterator = iter(data)
+-        _, model_kwargs = next(iterator)
+-    else:
+-        n_frames = int(args.motion_length * fps)
+-        collate_args = [{'inp': torch.zeros(n_frames), 'tokens': None, 'lengths': n_frames}] * args.num_samples
+-        is_t2m = any([args.input_text, args.text_prompt])
+-        if is_t2m:
+-            # t2m
+-            obj_points, obj_normals, obj_name, obj_bps = text_to_object(texts)
+-
+-            collate_args = [dict(arg, text=txt, obj_points=points, obj_normals=normals, seq_name = name,obj_bps=bps) for arg, txt, points, normals, name,bps in zip(collate_args, texts, obj_points, obj_normals, obj_name, obj_bps)]
+-   
+-
+-        _, model_kwargs = collate(collate_args)
+-
+-    # input to cuda
+-    model_kwargs['y']['obj_points'] = model_kwargs['y']['obj_points'].to(dist_util.dev())
+-    model_kwargs['y']['obj_normals'] = model_kwargs['y']['obj_normals'].to(dist_util.dev())
+-    model_kwargs['y']['obj_bps'] = model_kwargs['y']['obj_bps'].to(dist_util.dev())
+-
+-
+-
+-    all_motions = []
+-    all_motions_obj = []
+-   
+-    all_lengths = []
+-    all_text = []
+-    all_obj_name = []
+-    all_obj_points = []
+-
+-    for rep_i in range(args.num_repetitions):
+-        print(f'### Sampling [repetitions #{rep_i}]')
+-
+-        # add CFG scale to batch
+-        if args.guidance_param != 1:
+-            model_kwargs['y']['scale'] = torch.ones(args.batch_size, device=dist_util.dev()) * args.guidance_param
+-
+-
+-        if not args.skip_first_stage:
+-            afford_sample_fn = afford_diffusion.p_sample_loop
+-
+-            afford_sample = afford_sample_fn(
+-                afford_model,
+-                (args.batch_size, 4, afford_model.nfeats, 8),    # + 6 object pose
+-                # clip_denoised=False,
+-                clip_denoised=not args.predict_xstart,
+-                model_kwargs=model_kwargs,
+-                skip_timesteps=0,  # 0 is the default value - i.e. don't skip any step
+-                init_image=None,
+-                progress=True,
+-                dump_steps=None,
+-                noise=None,
+-                const_noise=False,
+-                cond_fn=None,
+-            )
+-
+-            afford_sample[:,3:] = sigmoid(afford_sample[:,3:])
+-
+-
+-
+-
+-
+-        
+-
+-
+-        sample_fn = motion_diffusion.p_sample_loop
+-
+-        # n_frames = max(model_kwargs['y']['lengths'].cpu().numpy())
+-        # n_frames=200
+-        sample = sample_fn(
+-            motion_model,
+-            (args.batch_size, motion_model.njoints + 18 +78*6, motion_model.nfeats, n_frames),    # + 18+78*6 object pose
+-            clip_denoised=False,
+-            # clip_denoised=not args.predict_xstart,
+-            model_kwargs=model_kwargs,
+-            skip_timesteps=0,  # 0 is the default value - i.e. don't skip any step
+-            init_image=None,
+-            progress=True,
+-            dump_steps=None,
+-            noise=None,
+-            const_noise=False,
+-            cond_fn=None,
+-        )
+-
+-        # sample = data.dataset.t2m_dataset.inv_transform(sample.cpu().permute(0, 2, 3, 1)).float()
+-        sample = sample.permute(0, 2, 3, 1).squeeze().float()
+-
+-        B, T , _ = sample.shape
+-
+-        pred_markers = sample[...,:231].reshape(B, T, 77, 3)
+-        pred_obj_data = sample[...,476:485]
+-
+-
+-
+-        if args.unconstrained:
+-            all_text += ['unconstrained'] * args.num_samples
+-        else:
+-            text_key = 'text' if 'text' in model_kwargs['y'] else 'action'
+-            all_text += model_kwargs['y'][text_key]
+-
+-
+-        all_motions.append(pred_markers.cpu().numpy())
+-        all_lengths.append(model_kwargs['y']['lengths'].cpu().numpy())
+-        all_motions_obj.append(pred_obj_data.cpu().numpy())
+-        all_obj_points.append(model_kwargs['y']['obj_points'].cpu().numpy())
+-        all_obj_name += model_kwargs['y']['seq_name']
+ 
++from common.quaternion import rotation_6d_to_matrix_np
++from data_loaders.get_data import DatasetConfig, get_dataset_loader
++from data_loaders.tensors import lengths_to_mask
++from diffusion.gaussian_diffusion import LocalMotionDiffusion
++from model.hoi_diff import HOIDiff
++from render.visualize_marker import plot_markers
++from sample.prompt_conditions import DATA_ROOT, ObjectRef, prompt_model_kwargs, read_prompts
++from utils import dist_util
++from utils.fixseed import fixseed
++from utils.model_util import load_model
++from utils.parser_util import generate_args
+ 
+-        print(f"created {len(all_motions) * args.batch_size} samples")
+-
+-
+-    all_motions = np.concatenate(all_motions, axis=0)
+-    all_motions = all_motions[:total_num_samples]  # [bs, njoints, 6, seqlen]
+-    all_text = all_text[:total_num_samples]
+-    all_lengths = np.concatenate(all_lengths, axis=0)[:total_num_samples]
+-    all_motions_obj = np.concatenate(all_motions_obj, axis=0)[:total_num_samples]
+-    all_obj_points = np.concatenate(all_obj_points, axis=0)
+-    all_obj_name = all_obj_name[:total_num_samples]
+-
+-
+-    if os.path.exists(out_path):
+-        shutil.rmtree(out_path)
+-    os.makedirs(out_path)
+-
+-    npy_path = os.path.join(out_path, 'results.npy')
+-
+-
+-    save_dict = {'motion': all_motions, 'motion_obj':all_motions_obj, 'text': all_text, 'lengths': all_lengths,
+-                'num_samples': args.num_samples, 'num_repetitions': args.num_repetitions, 'obj_name': all_obj_name}
+-
+-    print(f"saving results file to [{npy_path}]")
+-    np.save(npy_path, save_dict)
+ 
+-    with open(npy_path.replace('.npy', '.txt'), 'w') as fw:
+-        fw.write('\n'.join(all_text))
+-    with open(npy_path.replace('.npy', '_len.txt'), 'w') as fw:
+-        fw.write('\n'.join([str(l) for l in all_lengths]))
++FPS = 30
++MAX_FRAMES = 300
++DIFFUSION_STEPS = 1000
+ 
+-    print(f"saving visualizations to [{out_path}]...")
+-    
+ 
+-    sample_files = []
+-    num_samples_in_out_file = 7
++def output_path(args, contact_sampler, prompts):
++    if args.output_dir:
++        return Path(args.output_dir)
++    checkpoint = Path(args.model_path)
++    prefix = 'guide_contactv2' if contact_sampler else 'nonguide'
++    variant = 'times2' if contact_sampler else 'random'
++    iteration = checkpoint.stem.replace('model', '')
++    name = f'{prefix}_samples_{checkpoint.parent.name}_{iteration}_seed{args.seed}_{args.dataset}_{variant}'
++    if prompts:
++        descriptor = prompts[0].id if args.text_prompt else Path(args.input_text or args.prompt_manifest).stem
++        name += '_' + re.sub(r'[^A-Za-z0-9_-]', '_', descriptor)[:60]
++    return checkpoint.parent / name
+ 
+-    sample_print_template, row_print_template, all_print_template, \
+-    sample_file_template, row_file_template, all_file_template = construct_template_variables(args.unconstrained)
+ 
+-    for sample_i in range(args.num_samples):
+-        rep_files = []
+-        for rep_i in range(args.num_repetitions):
+-            caption = all_text[rep_i*args.batch_size + sample_i]
+-            length = all_lengths[rep_i*args.batch_size + sample_i]
+-            # motion = all_motions[rep_i*args.batch_size + sample_i].transpose(2, 0, 1)[:length]
+-            # motion_obj = all_motions_obj[rep_i*args.batch_size + sample_i].transpose(2, 0, 1)[:length,0,:]
+-            motion = all_motions[rep_i*args.batch_size + sample_i]
+-            motion_obj = all_motions_obj[rep_i*args.batch_size + sample_i]
+-            vertices = all_obj_points[rep_i*args.batch_size + sample_i]
++def load_motion_dataset(args):
++    return get_dataset_loader(DatasetConfig(
++        name=args.dataset,
++        batch_size=args.batch_size,
++        num_frames=MAX_FRAMES,
++        obj_split=args.obj_split,
++        split='test',
++        hml_mode='text_only',
++        training_stage=3,
++    ))
++
++
++def dataset_objects(labels):
++    # TextOnlyDataset stores the source dataset as the prefix in its legacy label.
++    objects = []
++    for label in labels:
++        dataset, separator, name = label.partition('_')
++        if not dataset or not separator or not name:
++            raise ValueError(f'Invalid dataset object label: {label!r}')
++        objects.append(ObjectRef(dataset, name))
++    return objects
++
++
++def file_sha256(path):
++    digest = hashlib.sha256()
++    with path.open('rb') as stream:
++        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def save_results(run, args, result, objects, prompts, n_frames, contact_sampler):
++    np.save(run / 'results.npy', result)
++    (run / 'results.txt').write_text('\n'.join(result['text']), encoding='utf-8')
++    (run / 'results_len.txt').write_text('\n'.join(map(str, result['lengths'])), encoding='utf-8')
++
++    checkpoint = Path(args.model_path)
++    mesh_hashes = {obj: file_sha256(obj.mesh_path) for obj in dict.fromkeys(objects)}
++    samples = []
++    for index, (text, length) in enumerate(zip(result['text'], result['lengths'])):
++        repetition, position = divmod(index, args.num_samples)
++        obj = objects[position]
++        samples.append({
++            'index': index,
++            'repetition': repetition,
++            'prompt_id': prompts[position].id if prompts else None,
++            'text': text,
++            'dataset': obj.dataset,
++            'object_name': obj.name,
++            'mesh_path': str(obj.mesh_path.relative_to(DATA_ROOT.parent)),
++            'mesh_sha256': mesh_hashes[obj],
++            'valid_frames': int(length),
++        })
++    manifest = {
++        'mode': 'prompt' if prompts else 'dataset',
++        'sampler': 'local_generate_obj_guide_contactv2' if contact_sampler else 'local_generate_obj',
++        'contact_guidance': contact_sampler and args.guidance,
++        'checkpoint': {
++            'path': str(checkpoint.absolute()),
++            'sha256': file_sha256(checkpoint),
++            'args_sha256': file_sha256(checkpoint.with_name('args.json')),
++            'strict_state_dict': bool(prompts),
++        },
++        'arguments': vars(args),
++        'fps': FPS,
++        'generated_frames': n_frames,
++        'diffusion_steps': DIFFUSION_STEPS,
++        'samples': samples,
++    }
++    (run / 'run_manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
++
++
++def stack_videos(inputs, output, direction):
++    command = ['ffmpeg', '-n', '-loglevel', 'error']
++    for path in inputs:
++        command.extend(['-i', str(path)])
++    if len(inputs) > 1:
++        command.extend(['-filter_complex', f'{direction}stack=inputs={len(inputs)}'])
++    else:
++        command.extend(['-c', 'copy'])
++    command.extend(['-movflags', '+faststart', str(output)])
++    subprocess.run(command, check=True)
++
++
++def render_results(run, args, result, objects):
++    meshes = {obj: trimesh.load_mesh(obj.mesh_path) for obj in dict.fromkeys(objects)}
++    prefix = 'row' if args.unconstrained else 'sample'
++    stacked_rows = []
++    for position, obj in enumerate(objects):
++        mesh = meshes[obj]
++        videos = []
++        for repetition in range(args.num_repetitions):
++            index = repetition * args.num_samples + position
++            length = result['lengths'][index]
++            motion = result['motion'][index, :length]
++            pose = result['motion_obj'][index, :length]
++            rotation = rotation_6d_to_matrix_np(pose[:, :6])
++            vertices = mesh.vertices[None] @ rotation.transpose(0, 2, 1) + pose[:, None, 6:]
++            column = 'col' if args.unconstrained else 'rep'
++            video = run / f'{prefix}{position:02d}_{column}{repetition:02d}.mp4'
++            print(f'[{position:02d} / {repetition:02d}] {result["text"][index]} -> {video.name}')
++            if args.regress_smpl:
++                from render.mesh_viz import visualize_body_obj
++                from sample.marker2smpl import SmplhOptmize10
+ 
+-            if is_using_data:
+-                dataset, obj_name = all_obj_name[rep_i*args.batch_size + sample_i].split('_')
++                regress_model = SmplhOptmize10('male', 1, len(motion))
++                body, faces = regress_model(torch.from_numpy(motion).float().to(dist_util.dev()))
++                visualize_body_obj(body.cpu().numpy(), faces, vertices, mesh.faces, save_path=str(video))
+             else:
+-                obj_name = all_obj_name[rep_i*args.batch_size + sample_i]
+-
++                plot_markers(video, motion, vertices, obj_faces=mesh.faces)
++            videos.append(video)
+ 
+-            # mesh_path = os.path.join(f"../data/{dataset}/objects", f'{obj_name}/sample_points.npy')
+-            # vertices = np.load(mesh_path)
+-            mesh_path = os.path.join(f"../data/{dataset}/objects", obj_name, obj_name + ".obj")
+-            obj_mesh = trimesh.load_mesh(mesh_path)
+-            vertices,obj_face = obj_mesh.vertices, obj_mesh.faces
++        row = run / f'{prefix}{position:02d}.mp4'
++        stack_videos(videos, row, 'h')
++        stacked_rows.append(row)
++        if len(stacked_rows) == 7 or position + 1 == len(objects):
++            first = position + 1 - len(stacked_rows)
++            stack_videos(stacked_rows, run / f'{prefix}s_{first:02d}_to_{position:02d}.mp4', 'v')
++            stacked_rows.clear()
+ 
+-            # transform
+-            angle, trans = motion_obj[:, :6], motion_obj[:, 6:]
+-            rot = rotation_6d_to_matrix_np(angle)
+-            obj_verts = (vertices)[None, ...]
+-            obj_points = np.matmul(obj_verts, np.transpose(rot, (0, 2, 1))) + trans[:, None, :]
+-            
+-            save_file = sample_file_template.format(sample_i, rep_i)
+-            print(sample_print_template.format(caption, sample_i, rep_i, save_file))
+-            animation_save_path = os.path.join(out_path, save_file)
+ 
+-
+-            if args.regress_smpl:
+-                print('REGRESS')
+-                T = motion_obj.shape[0]
+-                regress_model = SmplhOptmize10('male',1,T)
+-                verts, faces = regress_model(torch.from_numpy(motion).float().to(dist_util.dev()))
+-                visualize_body_obj(verts.cpu().numpy(),faces,obj_points,obj_face,save_path=animation_save_path)
+-                
+-            else:
+-                plot_markers(animation_save_path, motion, obj_points)
+-            # plot_3d_motion(animation_save_path, skeleton, motion, obj_points, hc_mask=None, oc_mask=None, title=caption, fps=fps)
+-
+-            # plot_markers_wface(animation_save_path, motion, obj_points, obj_face)
+-
+-            rep_files.append(animation_save_path)
+-
+-        sample_files = save_multiple_samples(args, out_path,
+-                                               row_print_template, all_print_template, row_file_template, all_file_template,
+-                                               caption, num_samples_in_out_file, rep_files, sample_files, sample_i)
+-
+-    abs_path = os.path.abspath(out_path)
+-    print(f'[Done] Results are at [{abs_path}]')
+-
+-
+-def save_multiple_samples(args, out_path, row_print_template, all_print_template, row_file_template, all_file_template,
+-                          caption, num_samples_in_out_file, rep_files, sample_files, sample_i):
+-    all_rep_save_file = row_file_template.format(sample_i)
+-    all_rep_save_path = os.path.join(out_path, all_rep_save_file)
+-    ffmpeg_rep_files = [f' -i {f} ' for f in rep_files]
+-    hstack_args = f' -filter_complex hstack=inputs={args.num_repetitions}' if args.num_repetitions > 1 else ''
+-    ffmpeg_rep_cmd = f'ffmpeg -y -loglevel warning ' + ''.join(ffmpeg_rep_files) + f'{hstack_args} {all_rep_save_path}'
+-    os.system(ffmpeg_rep_cmd)
+-    print(row_print_template.format(caption, sample_i, all_rep_save_file))
+-    sample_files.append(all_rep_save_path)
+-    if (sample_i + 1) % num_samples_in_out_file == 0 or sample_i + 1 == args.num_samples:
+-        # all_sample_save_file =  f'samples_{(sample_i - len(sample_files) + 1):02d}_to_{sample_i:02d}.mp4'
+-        all_sample_save_file = all_file_template.format(sample_i - len(sample_files) + 1, sample_i)
+-        all_sample_save_path = os.path.join(out_path, all_sample_save_file)
+-        print(all_print_template.format(sample_i - len(sample_files) + 1, sample_i, all_sample_save_file))
+-        ffmpeg_rep_files = [f' -i {f} ' for f in sample_files]
+-        vstack_args = f' -filter_complex vstack=inputs={len(sample_files)}' if len(sample_files) > 1 else ''
+-        ffmpeg_rep_cmd = f'ffmpeg -y -loglevel warning ' + ''.join(
+-            ffmpeg_rep_files) + f'{vstack_args} {all_sample_save_path}'
+-        os.system(ffmpeg_rep_cmd)
+-        sample_files = []
+-    return sample_files
+-
+-
+-def construct_template_variables(unconstrained):
+-    row_file_template = 'sample{:02d}.mp4'
+-    all_file_template = 'samples_{:02d}_to_{:02d}.mp4'
+-    if unconstrained:
+-        sample_file_template = 'row{:02d}_col{:02d}.mp4'
+-        sample_print_template = '[{} row #{:02d} column #{:02d} | -> {}]'
+-        row_file_template = row_file_template.replace('sample', 'row')
+-        row_print_template = '[{} row #{:02d} | all columns | -> {}]'
+-        all_file_template = all_file_template.replace('samples', 'rows')
+-        all_print_template = '[rows {:02d} to {:02d} | -> {}]'
++def generate(contact_sampler=False):
++    args = generate_args()
++    fixseed(args.seed)
++    if not 0 < args.motion_length <= MAX_FRAMES / FPS or int(args.motion_length * FPS) < 1:
++        raise ValueError('--motion_length must produce 1–300 frames at 30 FPS.')
++    n_frames = int(args.motion_length * FPS)
++    if args.action_file or args.action_name:
++        raise ValueError('This sampler uses text conditions. Use --prompt_manifest for custom prompts.')
++    if args.guidance and not contact_sampler:
++        raise ValueError('--guidance requires sample.local_generate_obj_guide_contactv2.')
++
++    prompts = read_prompts(args)
++    if prompts:
++        args.num_samples = len(prompts)
++    if not 1 <= args.num_samples <= args.batch_size or args.num_repetitions < 1:
++        raise ValueError('Require 1 <= num_samples <= batch_size and num_repetitions >= 1.')
++    args.batch_size = args.num_samples
++    run = output_path(args, contact_sampler, prompts)
++    if run.exists() or run.is_symlink():
++        raise FileExistsError(f'Output directory already exists: {run}. Choose a new --output_dir.')
++
++    if prompts:
++        model_kwargs = prompt_model_kwargs(prompts, n_frames)
++    dist_util.setup_dist(args.device)
++    print('Loading motion dataset...')
++    data = load_motion_dataset(args)
++    if not prompts and len(data.dataset) < args.num_samples:
++        raise ValueError(f'Dataset has only {len(data.dataset)} valid samples, requested {args.num_samples}.')
++
++    device = dist_util.dev()
++    print('Creating motion model and diffusion...')
++    model, diffusion = load_model(
++        args, data, device, ModelClass=HOIDiff, DiffusionClass=LocalMotionDiffusion,
++        diff_steps=DIFFUSION_STEPS, model_path=args.model_path, strict_checkpoint=bool(prompts),
++    )
++    if prompts:
++        objects = [prompt.object for prompt in prompts]
+     else:
+-        sample_file_template = 'sample{:02d}_rep{:02d}.mp4'
+-        sample_print_template = '["{}" ({:02d}) | Rep #{:02d} | -> {}]'
+-        row_print_template = '[ "{}" ({:02d}) | all repetitions | -> {}]'
+-        all_print_template = '[samples {:02d} to {:02d} | all repetitions | -> {}]'
+-
+-    return sample_print_template, row_print_template, all_print_template, \
+-           sample_file_template, row_file_template, all_file_template
+-
+-
++        _, model_kwargs = next(iter(data))
++        objects = dataset_objects(model_kwargs['y']['seq_name'])
++
++    y = model_kwargs['y']
++    y['lengths'] = y['lengths'].clamp(max=n_frames)
++    y['mask'] = lengths_to_mask(y['lengths'], n_frames)[:, None, None, :]
++    for key in ('obj_points', 'obj_normals', 'obj_bps'):
++        y[key] = y[key].to(device)
++    if args.guidance_param != 1:
++        y['scale'] = torch.full((args.batch_size,), args.guidance_param, device=device)
++
++    human_samples, object_samples = [], []
++    for repetition in range(args.num_repetitions):
++        print(f'### Sampling [repetition #{repetition}]')
++        guide = None
++        if args.guidance:
++            from utils.guidance import Guide_Contactv2
++
++            guide = Guide_Contactv2(classifiler_scale=args.classifier_scale)
++        sample = diffusion.p_sample_loop(
++            model, (args.batch_size, model.njoints + 18 + 78 * 6, model.nfeats, n_frames),
++            clip_denoised=False, model_kwargs=model_kwargs, progress=True, cond_fn=guide,
++        )
++        sample = sample.permute(0, 2, 3, 1).squeeze(1).float().cpu().numpy()
++        human_samples.append(sample[..., :231].reshape(args.batch_size, n_frames, 77, 3))
++        object_samples.append(sample[..., 476:485])
++
++    repetitions = args.num_repetitions
++    text = ['unconstrained'] * args.num_samples if args.unconstrained else y['text']
++    result = {
++        'motion': np.concatenate(human_samples),
++        'motion_obj': np.concatenate(object_samples),
++        'text': text * repetitions,
++        'lengths': np.tile(y['lengths'].cpu().numpy(), repetitions),
++        'num_samples': args.num_samples,
++        'num_repetitions': repetitions,
++        'obj_name': [obj.label for obj in objects] * repetitions,
++    }
++    if prompts:
++        result.update(
++            prompt_id=[prompt.id for prompt in prompts] * repetitions,
++            dataset=[obj.dataset for obj in objects] * repetitions,
++            object_name=[obj.name for obj in objects] * repetitions,
++        )
+ 
+-def load_afford_dataset(args, training_stage=1):
+-    data_conf = DatasetConfig(
+-        name=args.dataset,
+-        batch_size=args.batch_size,
+-        num_frames=1,
+-        obj_split=args.obj_split,
+-        split='test',
+-        hml_mode='text_only',
+-        training_stage=training_stage)
+-    data = get_dataset_loader(data_conf)
+-    return data
++    # Claim the directory atomically before writing. Preserve NumPy output if video rendering fails.
++    run.mkdir(parents=True, exist_ok=False)
++    print(f'Saving results to {run.absolute()}')
++    save_results(run, args, result, objects, prompts, n_frames, contact_sampler)
++    render_results(run, args, result, objects)
++    print(f'[Done] Results are at [{run.absolute()}]')
+ 
+-def load_motion_dataset(args, max_frames, n_frames, training_stage=3): 
+-    data_conf = DatasetConfig(
+-        name=args.dataset,
+-        batch_size=args.batch_size,
+-        num_frames=max_frames,
+-        obj_split=args.obj_split,
+-        split='test',
+-        hml_mode='text_only',
+-        training_stage=training_stage)
+-    data = get_dataset_loader(data_conf)
+-    data.fixed_length = n_frames
+-    return data
+ 
++def main():
++    generate()
+ 
+-    
+ 
+-if __name__ == "__main__":
++if __name__ == '__main__':
+     main()
+diff --git a/text2interaction/sample/local_generate_obj_guide_contactv2.py b/text2interaction/sample/local_generate_obj_guide_contactv2.py
+index 16c46c9..1cbe544 100644
+--- a/text2interaction/sample/local_generate_obj_guide_contactv2.py
++++ b/text2interaction/sample/local_generate_obj_guide_contactv2.py
+@@ -1,351 +1,11 @@
+-# This code is based on https://github.com/openai/guided-diffusion
+-"""
+-Generate a large batch of image samples from a model and save them as a large
+-numpy array. This can be used to produce samples for FID evaluation.
+-"""
+-from utils.fixseed import fixseed
+-import os
+-import numpy as np
+-import torch
+-from utils.parser_util import generate_args
+-from utils.model_util import  load_model
+-from utils import dist_util
+-from data_loaders.get_data import DatasetConfig, get_dataset_loader
+-from render.visualize_marker import plot_markers
+-from render.mesh_viz import visualize_body_obj
+-from common.quaternion import rotation_6d_to_matrix_np
+-import shutil
+-from data_loaders.tensors import collate
+-import trimesh
+-from sample.marker2smpl import SmplhOptmize10
+-from model.hoi_diff import HOIDiff as used_model
+-from diffusion.gaussian_diffusion import LocalMotionDiffusion
+-from utils.guidance import Guide_Contactv2
++"""Generate human-object motion with optional contact guidance."""
+ 
++from sample.local_generate_obj import generate
+ 
+-def main():
+-    args = generate_args()
+-    fixseed(args.seed)
+-    out_path = args.output_dir
+-        
+-    name = os.path.basename(os.path.dirname(args.model_path))
+-    niter = os.path.basename(args.model_path).replace('model', '').replace('.pt', '')
+-    max_frames = 300 
+-    fps = 30
+-    n_frames = min(max_frames, int(args.motion_length*fps))
+-    is_using_data = not any([args.input_text, args.text_prompt, args.action_file, args.action_name])
+-    dist_util.setup_dist(args.device)
+-
+-    sigmoid = torch.nn.Sigmoid()
+-    if out_path == '':
+-        out_path = os.path.join(os.path.dirname(args.model_path),
+-                                'guide_contactv2_samples_{}_{}_seed{}_{}_times2'.format(name, niter, args.seed, args.dataset))
+-        if args.text_prompt != '':
+-            out_path += '_' + args.text_prompt.replace(' ', '_').replace('.', '')
+-        elif args.input_text != '':
+-            out_path += '_' + os.path.basename(args.input_text).replace('.txt', '').replace(' ', '_').replace('.', '')
+-
+-    # this block must be called BEFORE the dataset is loaded
+-    if args.text_prompt != '':
+-        texts = [args.text_prompt]
+-        args.num_samples = 1
+-    elif args.input_text != '':
+-        assert os.path.exists(args.input_text)
+-        with open(args.input_text, 'r') as fr:
+-            texts = fr.readlines()
+-        texts = [s.replace('\n', '') for s in texts]
+-        args.num_samples = len(texts)
+-    elif args.action_name:
+-        action_text = [args.action_name]
+-        args.num_samples = 1
+-    elif args.action_file != '':
+-        assert os.path.exists(args.action_file)
+-        with open(args.action_file, 'r') as fr:
+-            action_text = fr.readlines()
+-        action_text = [s.replace('\n', '') for s in action_text]
+-        args.num_samples = len(action_text)
+-
+-    assert args.num_samples <= args.batch_size, \
+-        f'Please either increase batch_size({args.batch_size}) or reduce num_samples({args.num_samples})'
+-    # So why do we need this check? In order to protect GPU from a memory overload in the following line.
+-    # If your GPU can handle batch size larger then default, you can specify it through --batch_size flag.
+-    # If it doesn't, and you still want to sample more prompts, run this script with different seeds
+-    # (specify through the --seed flag)
+-    args.batch_size = args.num_samples  # Sampling a single batch from the testset, with exactly args.num_samples
+-
+-
+-    print('Loading Motion dataset...')
+-    data = load_motion_dataset(args, max_frames, n_frames)
+-
+-    total_num_samples = args.num_samples * args.num_repetitions
+-
+-
+-
+-    print("Creating motion model and diffusion...")
+-    motion_model, motion_diffusion = load_model(args, data, dist_util.dev(), ModelClass=used_model, DiffusionClass=LocalMotionDiffusion, diff_steps=1000,model_path=args.model_path)
+-
+-        
+-    if is_using_data:
+-        iterator = iter(data)
+-        _, model_kwargs = next(iterator)
+-    else:
+-        n_frames = int(args.motion_length * fps)
+-        collate_args = [{'inp': torch.zeros(n_frames), 'tokens': None, 'lengths': n_frames}] * args.num_samples
+-        is_t2m = any([args.input_text, args.text_prompt])
+-        if is_t2m:
+-            # t2m
+-            obj_points, obj_normals, obj_name, obj_bps = text_to_object(texts)
+-
+-            collate_args = [dict(arg, text=txt, obj_points=points, obj_normals=normals, seq_name = name,obj_bps=bps) for arg, txt, points, normals, name,bps in zip(collate_args, texts, obj_points, obj_normals, obj_name, obj_bps)]
+-   
+-
+-        _, model_kwargs = collate(collate_args)
+-
+-    # input to cuda
+-    model_kwargs['y']['obj_points'] = model_kwargs['y']['obj_points'].to(dist_util.dev())
+-    model_kwargs['y']['obj_normals'] = model_kwargs['y']['obj_normals'].to(dist_util.dev())
+-    model_kwargs['y']['obj_bps'] = model_kwargs['y']['obj_bps'].to(dist_util.dev())
+-
+-
+-
+-    all_motions = []
+-    all_motions_obj = []
+-   
+-    all_lengths = []
+-    all_text = []
+-    all_obj_name = []
+-    all_obj_points = []
+-
+-    for rep_i in range(args.num_repetitions):
+-        print(f'### Sampling [repetitions #{rep_i}]')
+-
+-        # add CFG scale to batch
+-        if args.guidance_param != 1:
+-            model_kwargs['y']['scale'] = torch.ones(args.batch_size, device=dist_util.dev()) * args.guidance_param
+-
+-
+-
+-
+-
+-
+-        if args.guidance:
+-            guide_fn_contact = Guide_Contactv2(classifiler_scale=args.classifier_scale)
+-        else: 
+-            guide_fn_contact = None
+-
+-
+-        sample_fn = motion_diffusion.p_sample_loop
+-
+-        # n_frames = max(model_kwargs['y']['lengths'].cpu().numpy())
+-   
+-        sample = sample_fn(
+-            motion_model,
+-            (args.batch_size, motion_model.njoints + 18 + 78*6, motion_model.nfeats, n_frames),    # + 18+78*6 object pose
+-            clip_denoised=False,
+-            # clip_denoised=not args.predict_xstart,
+-            model_kwargs=model_kwargs,
+-            skip_timesteps=0,  # 0 is the default value - i.e. don't skip any step
+-            init_image=None,
+-            progress=True,
+-            dump_steps=None,
+-            noise=None,
+-            const_noise=False,
+-            cond_fn=guide_fn_contact,
+-        )
+-
+-        # sample = data.dataset.t2m_dataset.inv_transform(sample.cpu().permute(0, 2, 3, 1)).float()
+-        sample = sample.permute(0, 2, 3, 1).squeeze().float()
+-
+-        B, T , _ = sample.shape
+-
+-        pred_markers = sample[...,:231].reshape(B, T, 77, 3)
+-        pred_obj_data = sample[...,476:485]
+-
+-
+-
+-        if args.unconstrained:
+-            all_text += ['unconstrained'] * args.num_samples
+-        else:
+-            text_key = 'text' if 'text' in model_kwargs['y'] else 'action'
+-            all_text += model_kwargs['y'][text_key]
+-
+-
+-        all_motions.append(pred_markers.cpu().numpy())
+-        all_lengths.append(model_kwargs['y']['lengths'].cpu().numpy())
+-        all_motions_obj.append(pred_obj_data.cpu().numpy())
+-        all_obj_points.append(model_kwargs['y']['obj_points'].cpu().numpy())
+-        all_obj_name += model_kwargs['y']['seq_name']
+-
+-
+-        print(f"created {len(all_motions) * args.batch_size} samples")
+-
+-
+-    all_motions = np.concatenate(all_motions, axis=0)
+-    all_motions = all_motions[:total_num_samples]  # [bs, njoints, 6, seqlen]
+-    all_text = all_text[:total_num_samples]
+-    all_lengths = np.concatenate(all_lengths, axis=0)[:total_num_samples]
+-    all_motions_obj = np.concatenate(all_motions_obj, axis=0)[:total_num_samples]
+-    all_obj_points = np.concatenate(all_obj_points, axis=0)
+-    all_obj_name = all_obj_name[:total_num_samples]
+-
+-
+-    if os.path.exists(out_path):
+-        shutil.rmtree(out_path)
+-    os.makedirs(out_path)
+-
+-    npy_path = os.path.join(out_path, 'results.npy')
+-
+-
+-    save_dict = {'motion': all_motions, 'motion_obj':all_motions_obj, 'text': all_text, 'lengths': all_lengths,
+-                'num_samples': args.num_samples, 'num_repetitions': args.num_repetitions, 'obj_name': all_obj_name}
+-
+-    print(f"saving results file to [{npy_path}]")
+-    np.save(npy_path, save_dict)
+-
+-    with open(npy_path.replace('.npy', '.txt'), 'w') as fw:
+-        fw.write('\n'.join(all_text))
+-    with open(npy_path.replace('.npy', '_len.txt'), 'w') as fw:
+-        fw.write('\n'.join([str(l) for l in all_lengths]))
+-
+-    print(f"saving visualizations to [{out_path}]...")
+-    
+-
+-    sample_files = []
+-    num_samples_in_out_file = 7
+-
+-    sample_print_template, row_print_template, all_print_template, \
+-    sample_file_template, row_file_template, all_file_template = construct_template_variables(args.unconstrained)
+-
+-    for sample_i in range(args.num_samples):
+-        rep_files = []
+-        for rep_i in range(args.num_repetitions):
+-            caption = all_text[rep_i*args.batch_size + sample_i]
+-            length = all_lengths[rep_i*args.batch_size + sample_i]
+-            # motion = all_motions[rep_i*args.batch_size + sample_i].transpose(2, 0, 1)[:length]
+-            # motion_obj = all_motions_obj[rep_i*args.batch_size + sample_i].transpose(2, 0, 1)[:length,0,:]
+-            motion = all_motions[rep_i*args.batch_size + sample_i]
+-            print(motion.shape)
+-            motion_obj = all_motions_obj[rep_i*args.batch_size + sample_i]
+-            vertices = all_obj_points[rep_i*args.batch_size + sample_i]
+-
+-            if is_using_data:
+-                dataset, obj_name = all_obj_name[rep_i*args.batch_size + sample_i].split('_')
+-            else:
+-                obj_name = all_obj_name[rep_i*args.batch_size + sample_i]
+-
+-
+-            # mesh_path = os.path.join(f"../data/{dataset}/objects", f'{obj_name}/sample_points.npy')
+-            # vertices = np.load(mesh_path)
+-            mesh_path = os.path.join(f"../data/{dataset}/objects", obj_name, obj_name + ".obj")
+-            obj_mesh = trimesh.load_mesh(mesh_path)
+-            vertices, obj_face = obj_mesh.vertices, obj_mesh.faces
+-
+-            # transform
+-            angle, trans = motion_obj[:, :6], motion_obj[:, 6:9]
+-            rot = rotation_6d_to_matrix_np(angle)
+-            obj_verts = (vertices)[None, ...]
+-            obj_points = np.matmul(obj_verts, np.transpose(rot, (0, 2, 1))) + trans[:, None, :]
+-            
+-            save_file = sample_file_template.format(sample_i, rep_i)
+-            print(sample_print_template.format(caption, sample_i, rep_i, save_file))
+-            animation_save_path = os.path.join(out_path, save_file)
+-
+-
+-
+-            # plot_3d_motion(animation_save_path, skeleton, motion, obj_points, hc_mask=None, oc_mask=None, title=caption, fps=fps)
+-            if args.regress_smpl:
+-                print('REGRESS')
+-                T = motion_obj.shape[0]
+-                regress_model = SmplhOptmize10('male',1,T)
+-                verts, faces = regress_model(torch.from_numpy(motion).float().to(dist_util.dev()))
+-                visualize_body_obj(verts.cpu().numpy(),faces,obj_points,obj_face,save_path=animation_save_path)
+-                
+-            else:
+-                plot_markers(animation_save_path, motion, obj_points)
+-            # plot_markers_wface(animation_save_path, motion, obj_points, obj_face)
+-
+-            rep_files.append(animation_save_path)
+-
+-        sample_files = save_multiple_samples(args, out_path,
+-                                               row_print_template, all_print_template, row_file_template, all_file_template,
+-                                               caption, num_samples_in_out_file, rep_files, sample_files, sample_i)
+-
+-    abs_path = os.path.abspath(out_path)
+-    print(f'[Done] Results are at [{abs_path}]')
+-
+-
+-def save_multiple_samples(args, out_path, row_print_template, all_print_template, row_file_template, all_file_template,
+-                          caption, num_samples_in_out_file, rep_files, sample_files, sample_i):
+-    all_rep_save_file = row_file_template.format(sample_i)
+-    all_rep_save_path = os.path.join(out_path, all_rep_save_file)
+-    ffmpeg_rep_files = [f' -i {f} ' for f in rep_files]
+-    hstack_args = f' -filter_complex hstack=inputs={args.num_repetitions}' if args.num_repetitions > 1 else ''
+-    ffmpeg_rep_cmd = f'ffmpeg -y -loglevel warning ' + ''.join(ffmpeg_rep_files) + f'{hstack_args} {all_rep_save_path}'
+-    os.system(ffmpeg_rep_cmd)
+-    print(row_print_template.format(caption, sample_i, all_rep_save_file))
+-    sample_files.append(all_rep_save_path)
+-    if (sample_i + 1) % num_samples_in_out_file == 0 or sample_i + 1 == args.num_samples:
+-        # all_sample_save_file =  f'samples_{(sample_i - len(sample_files) + 1):02d}_to_{sample_i:02d}.mp4'
+-        all_sample_save_file = all_file_template.format(sample_i - len(sample_files) + 1, sample_i)
+-        all_sample_save_path = os.path.join(out_path, all_sample_save_file)
+-        print(all_print_template.format(sample_i - len(sample_files) + 1, sample_i, all_sample_save_file))
+-        ffmpeg_rep_files = [f' -i {f} ' for f in sample_files]
+-        vstack_args = f' -filter_complex vstack=inputs={len(sample_files)}' if len(sample_files) > 1 else ''
+-        ffmpeg_rep_cmd = f'ffmpeg -y -loglevel warning ' + ''.join(
+-            ffmpeg_rep_files) + f'{vstack_args} {all_sample_save_path}'
+-        os.system(ffmpeg_rep_cmd)
+-        sample_files = []
+-    return sample_files
+-
+-
+-def construct_template_variables(unconstrained):
+-    row_file_template = 'sample{:02d}.mp4'
+-    all_file_template = 'samples_{:02d}_to_{:02d}.mp4'
+-    if unconstrained:
+-        sample_file_template = 'row{:02d}_col{:02d}.mp4'
+-        sample_print_template = '[{} row #{:02d} column #{:02d} | -> {}]'
+-        row_file_template = row_file_template.replace('sample', 'row')
+-        row_print_template = '[{} row #{:02d} | all columns | -> {}]'
+-        all_file_template = all_file_template.replace('samples', 'rows')
+-        all_print_template = '[rows {:02d} to {:02d} | -> {}]'
+-    else:
+-        sample_file_template = 'sample{:02d}_rep{:02d}.mp4'
+-        sample_print_template = '["{}" ({:02d}) | Rep #{:02d} | -> {}]'
+-        row_print_template = '[ "{}" ({:02d}) | all repetitions | -> {}]'
+-        all_print_template = '[samples {:02d} to {:02d} | all repetitions | -> {}]'
+-
+-    return sample_print_template, row_print_template, all_print_template, \
+-           sample_file_template, row_file_template, all_file_template
+-
+-
+-
+-def load_afford_dataset(args, training_stage=1):
+-    data_conf = DatasetConfig(
+-        name=args.dataset,
+-        batch_size=args.batch_size,
+-        num_frames=1,
+-        obj_split=args.obj_split,
+-        split='test',
+-        hml_mode='text_only',
+-        training_stage=training_stage)
+-    data = get_dataset_loader(data_conf)
+-    return data
+-
+-def load_motion_dataset(args, max_frames, n_frames, training_stage=3): 
+-    data_conf = DatasetConfig(
+-        name=args.dataset,
+-        batch_size=args.batch_size,
+-        num_frames=max_frames,
+-        obj_split=args.obj_split,
+-        split='test',
+-        hml_mode='text_only',
+-        training_stage=training_stage)
+-    data = get_dataset_loader(data_conf)
+-    data.fixed_length = n_frames
+-    return data
+ 
++def main():
++    generate(contact_sampler=True)
+ 
+-    
+ 
+-if __name__ == "__main__":
++if __name__ == '__main__':
+     main()
+diff --git a/text2interaction/sample/prompt_conditions.py b/text2interaction/sample/prompt_conditions.py
+new file mode 100644
+index 0000000..f28815a
+--- /dev/null
++++ b/text2interaction/sample/prompt_conditions.py
+@@ -0,0 +1,115 @@
++"""Read explicit text and object pairs for Text2Interaction sampling."""
++
++from dataclasses import dataclass
++import json
++from pathlib import Path
++
++import numpy as np
++import torch
++
++from data_loaders.tensors import collate
++
++
++DATA_ROOT = Path(__file__).resolve().parents[2] / 'data'
++
++
++@dataclass(frozen=True)
++class ObjectRef:
++    dataset: str
++    name: str
++
++    @property
++    def label(self):
++        return f'{self.dataset}_{self.name}'
++
++    @property
++    def mesh_path(self):
++        return DATA_ROOT / self.dataset / 'objects' / self.name / f'{self.name}.obj'
++
++
++@dataclass(frozen=True)
++class Prompt:
++    id: str
++    text: str
++    object: ObjectRef
++
++
++def read_prompts(args):
++    if args.input_text and args.text_prompt:
++        raise ValueError('Use only one of --input_text and --text_prompt.')
++    if not args.prompt_manifest:
++        if args.input_text or args.text_prompt:
++            raise ValueError('--input_text and --text_prompt require --prompt_manifest.')
++        return []
++
++    path = Path(args.prompt_manifest)
++    entries = json.loads(path.read_text(encoding='utf-8'))
++    if not isinstance(entries, list) or not entries:
++        raise ValueError(f'{path} must contain a nonempty JSON array of prompts.')
++
++    prompts = []
++    fields = ('id', 'text', 'dataset', 'object_name')
++    for index, entry in enumerate(entries, start=1):
++        if not isinstance(entry, dict) or any(
++            not isinstance(entry.get(field), str) or not entry[field].strip()
++            or entry[field].splitlines() != [entry[field]]
++            for field in fields
++        ):
++            raise ValueError(f'{path} entry {index} requires nonempty single-line strings for {", ".join(fields)}.')
++        dataset, name = entry['dataset'], entry['object_name']
++        for component in (dataset, name):
++            if component in ('.', '..') or any(char in component for char in ('/', '\\', '\0')):
++                raise ValueError(f'Invalid dataset or object name at {path} entry {index}: {component!r}')
++        prompts.append(Prompt(entry['id'].strip(), entry['text'].strip(), ObjectRef(dataset, name)))
++
++    if len({prompt.id for prompt in prompts}) != len(prompts):
++        raise ValueError(f'{path} contains duplicate prompt IDs.')
++    if args.input_text:
++        lines = Path(args.input_text).read_text(encoding='utf-8').splitlines()
++        if [line.strip() for line in lines] != [prompt.text for prompt in prompts]:
++            raise ValueError('--input_text must match the texts in --prompt_manifest, in the same order.')
++    if args.text_prompt:
++        prompts = [prompt for prompt in prompts if prompt.text == args.text_prompt.strip()]
++        if len(prompts) != 1:
++            raise ValueError('--text_prompt must match exactly one entry in --prompt_manifest.')
++    return prompts
++
++
++def load_object_geometry(obj):
++    if not obj.mesh_path.is_file():
++        raise FileNotFoundError(f'Missing mesh for {obj.label}: {obj.mesh_path}')
++    points_path = obj.mesh_path.with_name('sample_points.npy')
++    bps_path = DATA_ROOT / obj.dataset / 'objects_bps' / obj.name / f'{obj.name}_1024.npy'
++    points = np.load(points_path)
++    bps = np.load(bps_path)
++    if points.ndim != 2 or points.shape[1] != 3 or len(points) == 0:
++        raise ValueError(f'{points_path} must have shape (N, 3) with N > 0.')
++    if bps.shape not in ((1024, 3), (1, 1024, 3)):
++        raise ValueError(f'{bps_path} must encode 1024 three-dimensional BPS offsets.')
++    for array, path in ((points, points_path), (bps, bps_path)):
++        if array.dtype.kind not in 'fiu' or not np.isfinite(array).all():
++            raise ValueError(f'{path} must contain finite real coordinates.')
++    return points, bps.reshape(1, 1024, 3)
++
++
++def prompt_model_kwargs(prompts, n_frames):
++    geometry = {obj: load_object_geometry(obj) for obj in dict.fromkeys(prompt.object for prompt in prompts)}
++    max_points = max(len(points) for points, _ in geometry.values())
++    # Match the current dataset placeholder. The contact guide uses points, not normals.
++    normals = np.zeros((400, 3))
++    batch = []
++    for prompt in prompts:
++        points, bps = geometry[prompt.object]
++        # Repeating a surface point preserves the nearest-point search used by contact guidance.
++        points = np.pad(points, ((0, max_points - len(points)), (0, 0)), mode='edge')
++        batch.append({
++            'inp': torch.zeros(n_frames),
++            'lengths': n_frames,
++            'text': prompt.text,
++            'seq_name': prompt.object.label,
++            'obj_points': points,
++            'obj_normals': normals,
++            'obj_bps': bps,
++        })
++    _, model_kwargs = collate(batch)
++    return model_kwargs
+diff --git a/text2interaction/utils/guidance.py b/text2interaction/utils/guidance.py
+index 5f0c39f..123c9cc 100644
+--- a/text2interaction/utils/guidance.py
++++ b/text2interaction/utils/guidance.py
+@@ -233,7 +233,7 @@ class Guide_Contactv2:
+             n_joints = 77 
+             x.requires_grad_(True)
+ 
+-            sample = x.permute(0, 2, 3, 1).squeeze()
++            sample = x.permute(0, 2, 3, 1).squeeze(1)
+ 
+             B, T , _ = sample.shape
+ 
+diff --git a/text2interaction/utils/model_util.py b/text2interaction/utils/model_util.py
+index 90a61eb..0a2b244 100644
+--- a/text2interaction/utils/model_util.py
++++ b/text2interaction/utils/model_util.py
+@@ -8,15 +8,20 @@ import torch
+ 
+ def load_model_wo_clip(model, state_dict):
+     missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
+-    # assert len(unexpected_keys) == 0
+-    # assert all([k.startswith('clip_model.') for k in missing_keys])
++    if missing_keys or unexpected_keys:
++        print(f"Checkpoint key differences: missing={missing_keys}, unexpected={unexpected_keys}")
+ 
+ 
+-def load_model(args, data, device, ModelClass=MDM, DiffusionClass=LocalMotionDiffusion, diff_steps=1000,  model_path=None):
++def load_model(args, data, device, ModelClass=MDM, DiffusionClass=LocalMotionDiffusion,
++               diff_steps=1000, model_path=None, strict_checkpoint=False):
+     model, diffusion = create_model_and_diffusion(args, data, ModelClass=ModelClass, DiffusionClass=DiffusionClass, diff_steps=diff_steps) 
+     print(f"Loading pretrained checkpoints from [{model_path}]...")
+     state_dict = torch.load(model_path, map_location='cpu')
+-    load_model_wo_clip(model, state_dict)
++    if strict_checkpoint:
++        model.load_state_dict(state_dict, strict=True)
++        print(f"Checkpoint matched all {len(state_dict)} keys.")
++    else:
++        load_model_wo_clip(model, state_dict)
+     model.to(device)
+     model.eval()  # disable random masking
+     model = wrap_model(model, args)
+@@ -156,4 +161,4 @@ def create_gaussian_diffusion(args, diff_steps=1000, DiffusionClass=LocalMotionD
+             loss_type=loss_type,
+             rescale_timesteps=rescale_timesteps,
+         ),
+-    )
+\ No newline at end of file
++    )
+diff --git a/text2interaction/utils/parser_util.py b/text2interaction/utils/parser_util.py
+index 118deda..1ccaa16 100644
+--- a/text2interaction/utils/parser_util.py
++++ b/text2interaction/utils/parser_util.py
+@@ -15,7 +15,7 @@ def parse_and_load_from_model(parser):
+         args_to_overwrite += get_args_per_group_name(parser, args, group_name)
+ 
+     # load args from model
+-    model_path = get_model_path_from_args()
++    model_path = args.model_path
+     args_path = os.path.join(os.path.dirname(model_path), 'args.json')
+     print(args_path)
+     assert os.path.exists(args_path), 'Arguments json file was not found!'
+@@ -46,16 +46,6 @@ def get_args_per_group_name(parser, args, group_name):
+             return list(argparse.Namespace(**group_dict).__dict__.keys())
+     return ValueError('group_name was not found.')
+ 
+-def get_model_path_from_args():
+-    try:
+-        dummy_parser = ArgumentParser()
+-        dummy_parser.add_argument('model_path')
+-        dummy_args, _ = dummy_parser.parse_known_args()
+-        return dummy_args.model_path
+-    except:
+-        raise ValueError('model_path argument must be specified.')
+-
+-
+ def add_base_options(parser):
+     group = parser.add_argument_group('base')
+     group.add_argument("--debug", type=str, default=0)
+@@ -193,16 +183,17 @@ def add_sampling_options(parser):
+ def add_generate_options(parser):
+     group = parser.add_argument_group('generate')
+     group.add_argument("--motion_length", default=6.0, type=float,
+-                       help="The length of the sampled motion [in seconds]. "
+-                            "Maximum is 9.8 for HumanML3D (text-to-motion), and 2.0 for HumanAct12 (action-to-motion)")
++                       help="Motion duration in seconds (one frame at 30 FPS through 10 seconds for InterAct).")
+     group.add_argument("--input_text", default='', type=str,
+-                       help="Path to a text file lists text prompts to be synthesized. If empty, will take text prompts from dataset.")
++                       help="Text file with one prompt per line, matching --prompt_manifest in order.")
++    group.add_argument("--prompt_manifest", default='',
++                       help="JSON manifest of prompt IDs, text, datasets, and object names. Without a text selector, use every entry.")
+     group.add_argument("--action_file", default='', type=str,
+                        help="Path to a text file that lists names of actions to be synthesized. Names must be a subset of dataset/uestc/info/action_classes.txt if sampling from uestc, "
+                             "or a subset of [warm_up,walk,run,jump,drink,lift_dumbbell,sit,eat,turn steering wheel,phone,boxing,throw] if sampling from humanact12. "
+                             "If no file is specified, will take action names from dataset.")
+     group.add_argument("--text_prompt", default='', type=str,
+-                       help="A text prompt to be generated. If empty, will take text prompts from dataset.")
++                       help="Select a single exact text match from --prompt_manifest.")
+     group.add_argument("--action_name", default='', type=str,
+                        help="An action name to be generated. If empty, will take text prompts from dataset.")
+ 
+@@ -259,7 +250,7 @@ def generate_args():
+     add_data_options(parser)
+     args = parse_and_load_from_model(parser)
+     cond_mode = get_cond_mode(args)
+-    if (args.input_text or args.text_prompt) and cond_mode != 'text':
++    if (args.input_text or args.text_prompt or args.prompt_manifest) and cond_mode != 'text':
+         raise Exception('Arguments input_text and text_prompt should not be used for an action condition. Please use action_file or action_name.')
+     elif (args.action_file or args.action_name) and cond_mode != 'action':
+         raise Exception('Arguments action_file and action_name should not be used for a text condition. Please use input_text or text_prompt.')
+@@ -274,4 +265,4 @@ def evaluation_parser():
+     add_base_options(parser)
+     add_obj_options(parser)
+     add_evaluation_options(parser)
+-    return parse_and_load_from_model(parser)
+\ No newline at end of file
++    return parse_and_load_from_model(parser)

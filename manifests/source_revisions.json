@@ -1,0 +1,26 @@
+{
+  "pytorch3d": {
+    "commit": "297020a4b1d7492190cb4a909cafbd2c81a12cb5",
+    "origin": "https://github.com/facebookresearch/pytorch3d.git"
+  },
+  "pointnet2": {
+    "commit": "b5ceb6d9ca0467ea34beb81023f96ee82228f626",
+    "origin": "https://github.com/erikwijmans/Pointnet2_PyTorch.git"
+  },
+  "human_body_prior": {
+    "commit": "4c246d8a83ce16d3cff9c79dcf04d81fa440a6bc",
+    "origin": "https://github.com/nghorbani/human_body_prior.git"
+  },
+  "chumpy": {
+    "commit": "c0118792626e7e18f485b115983e3f87f287517a",
+    "origin": "https://github.com/hassony2/chumpy.git"
+  },
+  "chamfer_distance": {
+    "commit": "f86f6f7cadd3aca642704573d1626c67ca2e2846",
+    "origin": "https://github.com/otaheri/chamfer_distance.git"
+  },
+  "bps_torch": {
+    "commit": "00fcac3dffd294211d4ea0363eaf6c2ca4e068dc",
+    "origin": "https://github.com/otaheri/bps_torch.git"
+  }
+}

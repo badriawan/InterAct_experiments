@@ -1,0 +1,14 @@
+[
+  {
+    "id": "lift_box_001",
+    "text": "A person lifts a box with both hands.",
+    "dataset": "behave",
+    "object_name": "boxsmall"
+  },
+  {
+    "id": "carry_box_001",
+    "text": "A person carries a box in front of the body.",
+    "dataset": "behave",
+    "object_name": "boxsmall"
+  }
+]

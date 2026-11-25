@@ -1,0 +1,505 @@
+{
+  "pilot_samples": 6,
+  "fps": 30,
+  "frames_per_sample": 180,
+  "prompts": [
+    {
+      "id": "lift_box_001",
+      "text": "A person lifts a box with both hands.",
+      "dataset": "behave",
+      "object_name": "boxsmall"
+    },
+    {
+      "id": "carry_box_001",
+      "text": "A person carries a box in front of the body.",
+      "dataset": "behave",
+      "object_name": "boxsmall"
+    }
+  ],
+  "provenance": {
+    "checkpoint_sha256": "a52edb42d3bce7e347f125a3d3acc7f0176961ea9509c9c4329eb5c2c3cf5905",
+    "checkpoint_args_sha256": "c1322e3daac5f873303285d62cd1d8c8686394fcf453559a59b8bcb11f850a9a",
+    "mesh_sha256": "1e9c17c0750f278377cddcfce54df011e6d0a7e7dfb90e48c1bd7484b9b8bb77",
+    "prompt_manifest_sha256": "e11080f885507f59f4bef5f24bcab2b5bfbad985726b8e5dd27cc1425633ebf9",
+    "sample_points_sha256": "e00ea8f67d247af3377b02a0545484d1807882c3073e0d71d00688d69e717dfa",
+    "bps_sha256": "daa2214493f76297560e13fe9e15b1d47b6191f09acb640ab9565e50b6493a90"
+  },
+  "pilot_runs": [
+    {
+      "seed": 11,
+      "contact_guidance": false,
+      "directory": "custom_data/runs/pilot_seed11_20261120_203005_483532546",
+      "log": "custom_data/logs/pilot_seed11_20261120_203005_483532546.log",
+      "results_sha256": "3f588f0c21bac9e03d52137c82db0778be0b6b8a60a2e409ed60912c6a4785f5",
+      "motion_shape": [
+        2,
+        180,
+        77,
+        3
+      ],
+      "motion_obj_shape": [
+        2,
+        180,
+        9
+      ],
+      "lengths": [
+        180,
+        180
+      ],
+      "max_rotation_orthogonality_error": 2.980232238769531e-07,
+      "max_rotation_determinant_error": 2.384185791015625e-07,
+      "prompt_ids": [
+        "lift_box_001",
+        "carry_box_001"
+      ],
+      "videos": [
+        {
+          "path": "custom_data/runs/pilot_seed11_20261120_203005_483532546/sample00_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_20261120_203005_483532546/sample01_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_20261120_203005_483532546/sample00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_20261120_203005_483532546/sample01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_20261120_203005_483532546/samples_00_to_01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            960
+          ]
+        }
+      ],
+      "box_vertical_translation_start_end_m": [
+        {
+          "prompt_id": "lift_box_001",
+          "start_m": 0.1274297535419464,
+          "end_m": 1.159209966659546
+        },
+        {
+          "prompt_id": "carry_box_001",
+          "start_m": 1.1076167821884155,
+          "end_m": 1.178624153137207
+        }
+      ]
+    },
+    {
+      "seed": 22,
+      "contact_guidance": false,
+      "directory": "custom_data/runs/pilot_seed22_20261120_203005_483532546",
+      "log": "custom_data/logs/pilot_seed22_20261120_203005_483532546.log",
+      "results_sha256": "bc029d4fb8d874babc1aff82be2c629883866f9d4963c11fa2f5c6c48ff32ba7",
+      "motion_shape": [
+        2,
+        180,
+        77,
+        3
+      ],
+      "motion_obj_shape": [
+        2,
+        180,
+        9
+      ],
+      "lengths": [
+        180,
+        180
+      ],
+      "max_rotation_orthogonality_error": 2.980232238769531e-07,
+      "max_rotation_determinant_error": 2.384185791015625e-07,
+      "prompt_ids": [
+        "lift_box_001",
+        "carry_box_001"
+      ],
+      "videos": [
+        {
+          "path": "custom_data/runs/pilot_seed22_20261120_203005_483532546/sample00_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed22_20261120_203005_483532546/sample01_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed22_20261120_203005_483532546/sample00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed22_20261120_203005_483532546/sample01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed22_20261120_203005_483532546/samples_00_to_01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            960
+          ]
+        }
+      ],
+      "box_vertical_translation_start_end_m": [
+        {
+          "prompt_id": "lift_box_001",
+          "start_m": 0.11551501601934433,
+          "end_m": 1.1820372343063354
+        },
+        {
+          "prompt_id": "carry_box_001",
+          "start_m": 0.7670382261276245,
+          "end_m": 0.15205438435077667
+        }
+      ]
+    },
+    {
+      "seed": 33,
+      "contact_guidance": false,
+      "directory": "custom_data/runs/pilot_seed33_20261120_203005_483532546",
+      "log": "custom_data/logs/pilot_seed33_20261120_203005_483532546.log",
+      "results_sha256": "8910d7b004547c77d1363a09806aa2392928ded6c0b635e8ef79c9f1a6359a5d",
+      "motion_shape": [
+        2,
+        180,
+        77,
+        3
+      ],
+      "motion_obj_shape": [
+        2,
+        180,
+        9
+      ],
+      "lengths": [
+        180,
+        180
+      ],
+      "max_rotation_orthogonality_error": 3.5762786865234375e-07,
+      "max_rotation_determinant_error": 3.5762786865234375e-07,
+      "prompt_ids": [
+        "lift_box_001",
+        "carry_box_001"
+      ],
+      "videos": [
+        {
+          "path": "custom_data/runs/pilot_seed33_20261120_203005_483532546/sample00_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed33_20261120_203005_483532546/sample01_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed33_20261120_203005_483532546/sample00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed33_20261120_203005_483532546/sample01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed33_20261120_203005_483532546/samples_00_to_01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            960
+          ]
+        }
+      ],
+      "box_vertical_translation_start_end_m": [
+        {
+          "prompt_id": "lift_box_001",
+          "start_m": 0.13464000821113586,
+          "end_m": 1.2646100521087646
+        },
+        {
+          "prompt_id": "carry_box_001",
+          "start_m": 0.8998875617980957,
+          "end_m": 0.17298290133476257
+        }
+      ]
+    }
+  ],
+  "different_seed_outputs": [
+    {
+      "seeds": [
+        11,
+        22
+      ],
+      "prompt_id": "lift_box_001",
+      "mean_marker_distance_m": 0.22062429785728455,
+      "mean_box_translation_difference_m": 0.3819279074668884
+    },
+    {
+      "seeds": [
+        11,
+        22
+      ],
+      "prompt_id": "carry_box_001",
+      "mean_marker_distance_m": 0.45101651549339294,
+      "mean_box_translation_difference_m": 0.6008118391036987
+    },
+    {
+      "seeds": [
+        11,
+        33
+      ],
+      "prompt_id": "lift_box_001",
+      "mean_marker_distance_m": 0.20415717363357544,
+      "mean_box_translation_difference_m": 0.4015631675720215
+    },
+    {
+      "seeds": [
+        11,
+        33
+      ],
+      "prompt_id": "carry_box_001",
+      "mean_marker_distance_m": 0.40978699922561646,
+      "mean_box_translation_difference_m": 0.4728783071041107
+    },
+    {
+      "seeds": [
+        22,
+        33
+      ],
+      "prompt_id": "lift_box_001",
+      "mean_marker_distance_m": 0.21902701258659363,
+      "mean_box_translation_difference_m": 0.3675014078617096
+    },
+    {
+      "seeds": [
+        22,
+        33
+      ],
+      "prompt_id": "carry_box_001",
+      "mean_marker_distance_m": 0.23422586917877197,
+      "mean_box_translation_difference_m": 0.3071461021900177
+    }
+  ],
+  "contact_guidance_comparison": {
+    "seed": 11,
+    "run": {
+      "seed": 11,
+      "contact_guidance": true,
+      "directory": "custom_data/runs/pilot_seed11_guided_20261120_203005_483532546",
+      "log": "custom_data/logs/pilot_seed11_guided_20261120_203005_483532546.log",
+      "results_sha256": "5fde4c6a05f3b2f76b1a6dba2cf3af126dc4c2409d565d2abd6dc3654ddac742",
+      "motion_shape": [
+        2,
+        180,
+        77,
+        3
+      ],
+      "motion_obj_shape": [
+        2,
+        180,
+        9
+      ],
+      "lengths": [
+        180,
+        180
+      ],
+      "max_rotation_orthogonality_error": 3.5762786865234375e-07,
+      "max_rotation_determinant_error": 2.384185791015625e-07,
+      "prompt_ids": [
+        "lift_box_001",
+        "carry_box_001"
+      ],
+      "videos": [
+        {
+          "path": "custom_data/runs/pilot_seed11_guided_20261120_203005_483532546/sample00_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_guided_20261120_203005_483532546/sample01_rep00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_guided_20261120_203005_483532546/sample00.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_guided_20261120_203005_483532546/sample01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        {
+          "path": "custom_data/runs/pilot_seed11_guided_20261120_203005_483532546/samples_00_to_01.mp4",
+          "frames": 180,
+          "fps": 30,
+          "decode_ok": true,
+          "resolution": [
+            640,
+            960
+          ]
+        }
+      ]
+    },
+    "metric": "Median of per-frame nearest marker-to-triangle unsigned distance in each hand across all 180 frames, in centimeters.",
+    "mesh_is_watertight": false,
+    "without_guidance": [
+      {
+        "prompt_id": "lift_box_001",
+        "median_left_cm": 2.3215592675397105,
+        "median_right_cm": 1.1791439818846816,
+        "median_nearest_hand_cm": 0.5735935302711319,
+        "median_farther_hand_cm": 5.466441304461863
+      },
+      {
+        "prompt_id": "carry_box_001",
+        "median_left_cm": 1.2405189213565277,
+        "median_right_cm": 9.15747644684293,
+        "median_nearest_hand_cm": 1.2058819496187483,
+        "median_farther_hand_cm": 10.110051645394593
+      }
+    ],
+    "with_guidance": [
+      {
+        "prompt_id": "lift_box_001",
+        "median_left_cm": 2.32042488300929,
+        "median_right_cm": 1.173075754032616,
+        "median_nearest_hand_cm": 0.567371975392395,
+        "median_farther_hand_cm": 5.466427605539714
+      },
+      {
+        "prompt_id": "carry_box_001",
+        "median_left_cm": 1.2344372638065382,
+        "median_right_cm": 9.157365510516918,
+        "median_nearest_hand_cm": 1.1995332467673852,
+        "median_farther_hand_cm": 10.110887682162941
+      }
+    ],
+    "max_abs_marker_difference_m": 0.00045561790466308594,
+    "max_abs_box_translation_difference_m": 0.0006142854690551758,
+    "video": {
+      "path": "custom_data/videos/stage8_20261120_203005_483532546/perbandingan_contact_guidance_seed11.mp4",
+      "frames": 180,
+      "fps": 30,
+      "decode_ok": true,
+      "resolution": [
+        1280,
+        1008
+      ]
+    },
+    "matched_arguments_except": [
+      "guidance",
+      "output_dir"
+    ],
+    "marker_groups": "Hand and finger marker groups from marker2bodypart77 in the InterAct renderer."
+  },
+  "pilot_video": {
+    "path": "custom_data/videos/stage8_20261120_203005_483532546/pilot_enam_sampel.mp4",
+    "frames": 180,
+    "fps": 30,
+    "decode_ok": true,
+    "resolution": [
+      1920,
+      1008
+    ]
+  }
+}

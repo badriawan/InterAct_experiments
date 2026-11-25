@@ -1,0 +1,173 @@
+{
+  "candidates": [
+    {
+      "id": "Date03_Sub03_boxsmall_0",
+      "source": "Date03_Sub03_boxsmall",
+      "start": 0,
+      "end": 361,
+      "frames": 361,
+      "source_frames": 1355,
+      "in_test_split": true,
+      "caption": "A person picks up the small box with their left hand and swings it around.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date03_Sub03_boxsmall_362",
+      "source": "Date03_Sub03_boxsmall",
+      "start": 362,
+      "end": 710,
+      "frames": 348,
+      "source_frames": 1355,
+      "in_test_split": false,
+      "caption": "A person picks up the small box from their left hand to their right hand and swings it around.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date03_Sub03_boxsmall_711",
+      "source": "Date03_Sub03_boxsmall",
+      "start": 711,
+      "end": 910,
+      "frames": 199,
+      "source_frames": 1355,
+      "in_test_split": false,
+      "caption": "A person picks up the small box from their right hand to both hands and swings it around.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date03_Sub03_boxsmall_911",
+      "source": "Date03_Sub03_boxsmall",
+      "start": 911,
+      "end": 1040,
+      "frames": 129,
+      "source_frames": 1355,
+      "in_test_split": true,
+      "caption": "A person rotate the small box horizontally with both hands.",
+      "valid_for_loader": true
+    },
+    {
+      "id": "Date03_Sub03_boxsmall_1041",
+      "source": "Date03_Sub03_boxsmall",
+      "start": 1041,
+      "end": 1354,
+      "frames": 313,
+      "source_frames": 1355,
+      "in_test_split": false,
+      "caption": "A person swings the small box around with both hands.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date04_Sub05_boxsmall_0",
+      "source": "Date04_Sub05_boxsmall",
+      "start": 0,
+      "end": 120,
+      "frames": 120,
+      "source_frames": 1417,
+      "in_test_split": false,
+      "caption": "A person picks up a small box with both hands, then walks two steps forward with it in their right hand, turns around, and holds the small box with both hands again.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date04_Sub05_boxsmall_120",
+      "source": "Date04_Sub05_boxsmall",
+      "start": 120,
+      "end": 425,
+      "frames": 305,
+      "source_frames": 1417,
+      "in_test_split": false,
+      "caption": "A person holds a small box in their right hand and takes a few random steps, then swings the small box back and forth in front of them in a half-circle motion and puts it down.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date04_Sub05_boxsmall_425",
+      "source": "Date04_Sub05_boxsmall",
+      "start": 425,
+      "end": 531,
+      "frames": 106,
+      "source_frames": 1417,
+      "in_test_split": false,
+      "caption": "A person picks up a small box with their right, and transfers it to their left hand, then the left hand extends the small box outward, then brings it back.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date04_Sub05_boxsmall_531",
+      "source": "Date04_Sub05_boxsmall",
+      "start": 531,
+      "end": 814,
+      "frames": 283,
+      "source_frames": 1417,
+      "in_test_split": true,
+      "caption": "A person holds a small box in their left hand and takes a few random steps.",
+      "valid_for_loader": true
+    },
+    {
+      "id": "Date04_Sub05_boxsmall_814",
+      "source": "Date04_Sub05_boxsmall",
+      "start": 814,
+      "end": 1151,
+      "frames": 337,
+      "source_frames": 1417,
+      "in_test_split": false,
+      "caption": "A person lifts their left hand and transfers a smallbox to their right hand, then places the small box upright on the ground with their right hand.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date04_Sub05_boxsmall_1151",
+      "source": "Date04_Sub05_boxsmall",
+      "start": 1151,
+      "end": 1416,
+      "frames": 265,
+      "source_frames": 1417,
+      "in_test_split": false,
+      "caption": "A person lifts an upright small box, turns it horizontally, and then places it on the ground with both hands.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date07_Sub08_boxsmall_0",
+      "source": "Date07_Sub08_boxsmall",
+      "start": 0,
+      "end": 460,
+      "frames": 460,
+      "source_frames": 1424,
+      "in_test_split": true,
+      "caption": "A person picks up a small box with both hands, walks clockwise and fiddles with the small box.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date07_Sub08_boxsmall_460",
+      "source": "Date07_Sub08_boxsmall",
+      "start": 460,
+      "end": 1060,
+      "frames": 600,
+      "source_frames": 1424,
+      "in_test_split": false,
+      "caption": "A person holds a small box with their left arm, walks counterclockwise, and lifts the small box up and down with their left hand.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date07_Sub08_boxsmall_1060",
+      "source": "Date07_Sub08_boxsmall",
+      "start": 1060,
+      "end": 1340,
+      "frames": 280,
+      "source_frames": 1424,
+      "in_test_split": false,
+      "caption": "A person holds a small box with their both hands, walks counterclockwise, and holds the small box with their right hand, and then lifts the small box up and down with their right hand.",
+      "valid_for_loader": false
+    },
+    {
+      "id": "Date07_Sub08_boxsmall_1340",
+      "source": "Date07_Sub08_boxsmall",
+      "start": 1340,
+      "end": 1422,
+      "frames": 82,
+      "source_frames": 1424,
+      "in_test_split": false,
+      "caption": "A person lifts a small box up with their right hand, and walks clockwise.",
+      "valid_for_loader": false
+    }
+  ],
+  "selected": [
+    "Date03_Sub03_boxsmall_911",
+    "Date04_Sub05_boxsmall_531"
+  ]
+}
